@@ -1,17 +1,26 @@
 package com.amazon.ata.advertising.service.businesslogic;
 
+import com.amazon.ata.advertising.service.dao.CustomerProfileDao;
 import com.amazon.ata.advertising.service.dao.ReadableDao;
 import com.amazon.ata.advertising.service.model.AdvertisementContent;
 import com.amazon.ata.advertising.service.model.EmptyGeneratedAdvertisement;
 import com.amazon.ata.advertising.service.model.GeneratedAdvertisement;
+import com.amazon.ata.advertising.service.model.RequestContext;
 import com.amazon.ata.advertising.service.targeting.TargetingGroup;
+import com.amazon.ata.advertising.service.targeting.TargetingEvaluator;
 
+import com.amazon.ata.advertising.service.targeting.predicate.TargetingPredicateResult;
+import com.amazon.ata.customerservice.CustomerProfile;
+import com.amazonaws.services.dynamodbv2.xspec.L;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.Predicate;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.Opt;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 /**
@@ -23,6 +32,7 @@ public class AdvertisementSelectionLogic {
 
     private final ReadableDao<String, List<AdvertisementContent>> contentDao;
     private final ReadableDao<String, List<TargetingGroup>> targetingGroupDao;
+    private final ReadableDao<String, CustomerProfile> customerProfileDao;
     private Random random = new Random();
 
     /**
@@ -32,9 +42,11 @@ public class AdvertisementSelectionLogic {
      */
     @Inject
     public AdvertisementSelectionLogic(ReadableDao<String, List<AdvertisementContent>> contentDao,
-                                       ReadableDao<String, List<TargetingGroup>> targetingGroupDao) {
+                                       ReadableDao<String, List<TargetingGroup>> targetingGroupDao,
+                                       ReadableDao<String, CustomerProfile> customerProfileDao) {
         this.contentDao = contentDao;
         this.targetingGroupDao = targetingGroupDao;
+        this.customerProfileDao = customerProfileDao;
     }
 
     /**
@@ -56,18 +68,43 @@ public class AdvertisementSelectionLogic {
      *     not be generated.
      */
     public GeneratedAdvertisement selectAdvertisement(String customerId, String marketplaceId) {
+        System.out.println("----------------------- Begin SelectAdvertisement Call -----------------------");
+        System.out.println("Customer ID: " + customerId);
+        System.out.println("Marketplace ID: " + marketplaceId);
+        // Empty ad, by default
         GeneratedAdvertisement generatedAdvertisement = new EmptyGeneratedAdvertisement();
+
         if (StringUtils.isEmpty(marketplaceId)) {
             LOG.warn("MarketplaceId cannot be null or empty. Returning empty ad.");
-        } else {
-            final List<AdvertisementContent> contents = contentDao.get(marketplaceId);
+            return generatedAdvertisement;
+        }
 
-            if (CollectionUtils.isNotEmpty(contents)) {
-                AdvertisementContent randomAdvertisementContent = contents.get(random.nextInt(contents.size()));
-                generatedAdvertisement = new GeneratedAdvertisement(randomAdvertisementContent);
+        final List<AdvertisementContent> contents = contentDao.get(marketplaceId);
+
+        if (CollectionUtils.isNotEmpty(contents)) {
+            TargetingEvaluator targetingEvaluator = new TargetingEvaluator(new RequestContext(customerId, marketplaceId));
+
+            List<AdvertisementContent> filteredContent = new ArrayList<>();
+
+            for (AdvertisementContent content : contents) {
+                Optional<List<TargetingGroup>> targetingGroups = Optional.ofNullable(targetingGroupDao.get(content.getContentId()));
+                if (targetingGroups.isPresent()) {
+                    for (TargetingGroup targetingGroup : targetingGroups.get()) {
+                        if (targetingEvaluator.evaluate(targetingGroup).isTrue()) {
+                            filteredContent.add(content);
+                        }
+                    }
+                }
             }
 
+            if (!filteredContent.isEmpty()) {
+                AdvertisementContent randomAdvertisementContent = filteredContent.get(random.nextInt(filteredContent.size()));
+                System.out.println("Random advert selected: " + randomAdvertisementContent);
+                generatedAdvertisement = new GeneratedAdvertisement(randomAdvertisementContent);
+            }
         }
+
+        System.out.println("----------------------- End SelectAdvertisement Call -----------------------");
 
         return generatedAdvertisement;
     }

@@ -1,10 +1,12 @@
 package com.amazon.ata.advertising.service.businesslogic;
 
+import com.amazon.ata.advertising.service.dao.CustomerProfileDao;
 import com.amazon.ata.advertising.service.dao.ReadableDao;
 import com.amazon.ata.advertising.service.model.AdvertisementContent;
 import com.amazon.ata.advertising.service.model.EmptyGeneratedAdvertisement;
 import com.amazon.ata.advertising.service.model.GeneratedAdvertisement;
 import com.amazon.ata.advertising.service.targeting.TargetingGroup;
+import com.amazon.ata.customerservice.CustomerProfile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -17,6 +19,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
@@ -41,6 +44,9 @@ public class AdvertisementSelectionLogicTest {
     private ReadableDao<String, List<TargetingGroup>> targetingGroupDao;
 
     @Mock
+    private ReadableDao<String, CustomerProfile> customerProfileDao;
+
+    @Mock
     private Random random;
 
     private AdvertisementSelectionLogic adSelectionService;
@@ -49,7 +55,7 @@ public class AdvertisementSelectionLogicTest {
     @BeforeEach
     public void setup() {
         initMocks(this);
-        adSelectionService = new AdvertisementSelectionLogic(contentDao, targetingGroupDao);
+        adSelectionService = new AdvertisementSelectionLogic(contentDao, targetingGroupDao, customerProfileDao);
         adSelectionService.setRandom(random);
     }
 
@@ -89,7 +95,7 @@ public class AdvertisementSelectionLogicTest {
     public void selectAdvertisement_multipleAds_returnsOneRandom() {
         List<AdvertisementContent> contents = Arrays.asList(CONTENT1, CONTENT2, CONTENT3);
         when(contentDao.get(MARKETPLACE_ID)).thenReturn(contents);
-        when(random.nextInt(contents.size())).thenReturn(1);
+        when(random.nextInt(anyInt())).thenReturn(1);
         GeneratedAdvertisement ad = adSelectionService.selectAdvertisement(CUSTOMER_ID, MARKETPLACE_ID);
 
         assertEquals(CONTENT_ID2, ad.getContent().getContentId());

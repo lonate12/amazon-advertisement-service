@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,6 +28,11 @@ public class CustomerProfileDaoTest {
             .build();
     private static final GetCustomerProfileResponse RESULT = GetCustomerProfileResponse.builder().
             withCustomerProfile(PROFILE)
+            .build();
+    private static final String NON_EXISTENT_CUSTOMER_ID = "DB";
+    private static final CustomerProfile EMPTY_PROFILE = CustomerProfile.builder().build();
+    private static final GetCustomerProfileResponse EMPTY_RESULT = GetCustomerProfileResponse.builder()
+            .withCustomerProfile(EMPTY_PROFILE)
             .build();
 
     @Mock
@@ -54,5 +60,20 @@ public class CustomerProfileDaoTest {
         verify(customerClient).getCustomerProfile(requestCaptor.capture());
         GetCustomerProfileRequest capturedRequest = requestCaptor.getValue();
         assertEquals(capturedRequest.getCustomerId(), CUSTOMER_ID);
+    }
+
+    @Test
+    public void get_invalidId_receivedEmptyCustomerProfile() {
+        // GIVEN
+        ArgumentCaptor<GetCustomerProfileRequest> requestCaptor = ArgumentCaptor.forClass(GetCustomerProfileRequest.class);
+        when(customerClient.getCustomerProfile(any(GetCustomerProfileRequest.class))).thenReturn(EMPTY_RESULT);
+
+        // WHEN
+        CustomerProfile actual = customerProfileDao.get(NON_EXISTENT_CUSTOMER_ID);
+        assertEquals(actual, EMPTY_PROFILE);
+        verify(customerClient).getCustomerProfile(requestCaptor.capture());
+        GetCustomerProfileRequest capturedRequest = requestCaptor.getValue();
+        assertEquals(capturedRequest.getCustomerId(), NON_EXISTENT_CUSTOMER_ID);
+        assertTrue(EMPTY_PROFILE.isEmpty());
     }
 }

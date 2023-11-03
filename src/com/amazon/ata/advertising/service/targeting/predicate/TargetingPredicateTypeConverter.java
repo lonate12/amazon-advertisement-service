@@ -1,5 +1,6 @@
 package com.amazon.ata.advertising.service.targeting.predicate;
 
+import com.amazon.ata.advertising.service.dependency.DaggerLambdaComponent;
 import com.amazon.ata.advertising.service.exceptions.AdvertisementServiceException;
 import com.amazon.ata.advertising.service.dependency.LambdaComponent;
 import com.amazon.ata.advertising.service.dependency.TargetingPredicateInjector;
@@ -46,7 +47,9 @@ public class TargetingPredicateTypeConverter implements DynamoDBTypeConverter<St
 
     @Override
     public List<TargetingPredicate> unconvert(String value) {
-        LambdaComponent component = null;//DaggerLambdaComponent.create();
+        // Note: The below line was: LambdaComponent component = null; //DaggerLambdaComponent.create();
+        //  I removed the null and comment line so we didn't run into a Null pointed exception every time.
+        LambdaComponent component = DaggerLambdaComponent.create();
         TargetingPredicateInjector injector = component.getTargetingPredicateInjector();
         try {
             final List<TargetingPredicate> predicates = MAPPER.readValue(value,

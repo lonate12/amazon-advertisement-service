@@ -111,6 +111,10 @@ public class CustomerProfile implements Comparable<CustomerProfile> {
     this.parent = parent;
   }
 
+  public boolean isEmpty() {
+    return homeState == null && ageRange == null && parent == null;
+  }
+
   private static final int classNameHashCode =
       internalHashCodeCompute("com.amazon.ata.customerservice.CustomerProfile");
 
