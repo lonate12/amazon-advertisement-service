@@ -68,10 +68,6 @@ public class AdvertisementSelectionLogic {
      *     not be generated.
      */
     public GeneratedAdvertisement selectAdvertisement(String customerId, String marketplaceId) {
-        System.out.println("----------------------- Begin SelectAdvertisement Call -----------------------");
-        System.out.println("Customer ID: " + customerId);
-        System.out.println("Marketplace ID: " + marketplaceId);
-        // Empty ad, by default
         GeneratedAdvertisement generatedAdvertisement = new EmptyGeneratedAdvertisement();
 
         if (StringUtils.isEmpty(marketplaceId)) {
@@ -84,27 +80,19 @@ public class AdvertisementSelectionLogic {
         if (CollectionUtils.isNotEmpty(contents)) {
             TargetingEvaluator targetingEvaluator = new TargetingEvaluator(new RequestContext(customerId, marketplaceId));
 
-            List<AdvertisementContent> filteredContent = new ArrayList<>();
-
-            for (AdvertisementContent content : contents) {
-                Optional<List<TargetingGroup>> targetingGroups = Optional.ofNullable(targetingGroupDao.get(content.getContentId()));
-                if (targetingGroups.isPresent()) {
-                    for (TargetingGroup targetingGroup : targetingGroups.get()) {
-                        if (targetingEvaluator.evaluate(targetingGroup).isTrue()) {
-                            filteredContent.add(content);
-                        }
-                    }
-                }
-            }
+            List<AdvertisementContent> filteredContent = contents.stream().filter(content -> {
+                return targetingGroupDao.get(content.getContentId()).stream()
+                        .map(Optional::ofNullable)
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .anyMatch(targetingGroup -> targetingEvaluator.evaluate(targetingGroup).isTrue());
+            }).collect(Collectors.toList());
 
             if (!filteredContent.isEmpty()) {
                 AdvertisementContent randomAdvertisementContent = filteredContent.get(random.nextInt(filteredContent.size()));
-                System.out.println("Random advert selected: " + randomAdvertisementContent);
                 generatedAdvertisement = new GeneratedAdvertisement(randomAdvertisementContent);
             }
         }
-
-        System.out.println("----------------------- End SelectAdvertisement Call -----------------------");
 
         return generatedAdvertisement;
     }
