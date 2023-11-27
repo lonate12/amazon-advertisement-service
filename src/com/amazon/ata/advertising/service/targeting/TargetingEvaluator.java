@@ -41,7 +41,8 @@ public class TargetingEvaluator {
                         throw new RuntimeException(e);
                     }
                 })
-                .anyMatch(TargetingPredicateResult::isTrue);
+                .allMatch(TargetingPredicateResult::isTrue);
+
         return isTrue ? TargetingPredicateResult.TRUE : TargetingPredicateResult.FALSE;
     }
 }

@@ -2,10 +2,7 @@ package com.amazon.ata.advertising.service.businesslogic;
 
 import com.amazon.ata.advertising.service.dao.CustomerProfileDao;
 import com.amazon.ata.advertising.service.dao.ReadableDao;
-import com.amazon.ata.advertising.service.model.AdvertisementContent;
-import com.amazon.ata.advertising.service.model.EmptyGeneratedAdvertisement;
-import com.amazon.ata.advertising.service.model.GeneratedAdvertisement;
-import com.amazon.ata.advertising.service.model.RequestContext;
+import com.amazon.ata.advertising.service.model.*;
 import com.amazon.ata.advertising.service.targeting.TargetingGroup;
 import com.amazon.ata.advertising.service.targeting.TargetingEvaluator;
 
@@ -79,18 +76,43 @@ public class AdvertisementSelectionLogic {
 
         if (CollectionUtils.isNotEmpty(contents)) {
             TargetingEvaluator targetingEvaluator = new TargetingEvaluator(new RequestContext(customerId, marketplaceId));
+            // Note: Initial, hacky solution replaced by a cleaner solution
+            //  The cleaner solution was helped along by Swastik
+            // TreeMap<Double, List<AdvertisementContent>> contentTreeMap = new TreeMap<>();
 
-            List<AdvertisementContent> filteredContent = contents.stream().filter(content -> {
-                return targetingGroupDao.get(content.getContentId()).stream()
-                        .map(Optional::ofNullable)
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .anyMatch(targetingGroup -> targetingEvaluator.evaluate(targetingGroup).isTrue());
-            }).collect(Collectors.toList());
+//            contents.stream()
+//                    .forEach(content -> {
+//                        targetingGroupDao.get(content.getContentId()).stream()
+//                                .forEach(targetingGroup -> {
+//                                    if (targetingEvaluator.evaluate(targetingGroup).isTrue()){
+//                                        System.out.println("Targeting Group " + targetingGroup.getTargetingGroupId() + " evaluates to true.");
+//                                        // Get the list at the current click through rate
+//                                        List<AdvertisementContent> listAtCurrentClickThrough = contentTreeMap.get(targetingGroup.getClickThroughRate());
+//                                        // If the list is empty, create a new list
+//                                        if (listAtCurrentClickThrough == null) {
+//                                            listAtCurrentClickThrough = new ArrayList<>();
+//                                        }
+//                                        // Add the content to the new list
+//                                        listAtCurrentClickThrough.add(content);
+//                                        // Add the updated list to the treemap at the appropriate click through rate
+//                                        contentTreeMap.put(targetingGroup.getClickThroughRate(),listAtCurrentClickThrough);
+//                                    } else {
+//                                        System.out.println("Targeting Group " + targetingGroup.getTargetingGroupId() + " does not evaluate to true.");
+//                                    }
+//                                });
+//                    });
 
-            if (!filteredContent.isEmpty()) {
-                AdvertisementContent randomAdvertisementContent = filteredContent.get(random.nextInt(filteredContent.size()));
-                generatedAdvertisement = new GeneratedAdvertisement(randomAdvertisementContent);
+            TreeMap<TargetingGroup, AdvertisementContent> contentTreeMap = new TreeMap<>(Comparator.comparingDouble(TargetingGroup::getClickThroughRate));
+            for (AdvertisementContent content : contents) {
+                for (TargetingGroup tg : targetingGroupDao.get(content.getContentId())) {
+                    if (targetingEvaluator.evaluate(tg).isTrue()) {
+                        contentTreeMap.put(tg, content);
+                    }
+                }
+            }
+
+            if (!contentTreeMap.isEmpty()) {
+                generatedAdvertisement = new GeneratedAdvertisement(contentTreeMap.lastEntry().getValue());
             }
         }
 
